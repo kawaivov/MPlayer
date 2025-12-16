@@ -1,0 +1,99 @@
+name: CI/CD Pipeline
+
+# Тригери: спрацьовує на push у main та на будь-який Pull Request
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Style Point 1: Concurrency
+# Якщо ти зробив новий пуш, а старий ще не добіг - скасувати старий (економія ресурсів)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # Назва образу має бути в нижньому регістрі
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # --- JOB 1: ТЕСТУВАННЯ (CI) ---
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # Кешування залежностей (Speed optimization)
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Tests
+        # Запускаємо твої юніт-тести
+        run: python -m unittest discover -s tests
+
+  # --- JOB 2: ЗБІРКА ТА ПУБЛІКАЦІЯ (CD) ---
+  build-and-push:
+    needs: test # Запускати тільки якщо тести пройшли успішно
+    # Запускати тільки на гілці main (не на PR)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    # Style Point 2: Permissions (Least Privilege)
+    permissions:
+      contents: read
+      packages: write # Дозвіл пушити в GHCR
+
+    strategy:
+      matrix:
+        include:
+          - service: api
+            context: .
+            dockerfile: ./Dockerfile
+            image_suffix: -api
+          - service: web
+            context: ./nginx
+            dockerfile: ./nginx/Dockerfile
+            image_suffix: -web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.image_suffix }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+            # Style Point 3: Semantic tagging (v1.0.0 якщо буде тег)
+            type=ref,event=tag
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
