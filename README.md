@@ -81,3 +81,17 @@ git commit -m "Implement authentication and CRUD"
 git push origin main
 ```
 
+
+## CI/CD Implementation (Practice 7)
+
+**Реалізовано:**
+1.  **CI:** Автоматичний запуск тестів (`unittest`) при кожному пуші та PR.
+2.  **CD:** Автоматична збірка та публікація Docker-образів у **GitHub Container Registry**.
+    * Image API: `ghcr.io/kawaivov/mplayer-api`
+    * Image Web: `ghcr.io/kawaivov/mplayer-web`
+3.  **Style Points:**
+    * ✅ **Concurrency:** Скасування застарілих білдів для економії ресурсів.
+    * ✅ **Permissions:** Використано принцип найменших привілеїв (`packages: write` тільки для job публікації).
+    * ✅ **Semantic Tagging:** Образи тегуються як `latest` та `sha-<commit_hash>`.
+    * ✅ **Matrix Strategy:** Оптимізована збірка кількох сервісів (API + Web) в одному workflow.
+
