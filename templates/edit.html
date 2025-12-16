@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Редагування треку</title>
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; padding: 30px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 600px; background-color: #181818; padding: 30px; border-radius: 8px; }
+        h1 { margin-bottom: 20px; text-align: center; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #b3b3b3; font-weight: bold;}
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 20px; background-color: #333; border: none; border-radius: 4px; color: white; box-sizing: border-box;}
+        
+        /* Стилі для файлу */
+        input[type="file"] { margin-bottom: 20px; color: #b3b3b3; }
+        .current-cover { width: 100px; height: 100px; object-fit: cover; border-radius: 4px; margin-bottom: 10px; display: block; }
+
+        .checkbox-group { display: flex; align-items: center; margin-bottom: 20px; }
+        input[type="checkbox"] { transform: scale(1.5); margin-right: 10px; accent-color: #1db954; }
+
+        .btn { width: 100%; padding: 14px; background-color: #1db954; color: black; font-weight: bold; border: none; border-radius: 500px; cursor: pointer; text-transform: uppercase; }
+        .btn:hover { background-color: #1ed760; }
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #b3b3b3; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Редагувати трек</h1>
+        
+        <form method="POST" enctype="multipart/form-data">
+            
+            <label>Назва треку</label>
+            <input type="text" name="title" value="{{ song.title }}" required>
+
+            <label>Виконавець</label>
+            <input type="text" name="artist" value="{{ song.artist }}" required>
+
+            <label>Оновити обкладинку (необов'язково)</label>
+            {% if song.cover_filename %}
+                <img src="/static/covers/{{ song.cover_filename }}" class="current-cover" alt="Current Cover">
+            {% endif %}
+            <input type="file" name="cover_file" accept=".png, .jpg, .jpeg, .gif">
+
+            <div class="checkbox-group">
+                <input type="checkbox" name="is_visible" id="visible" {% if song.is_visible %}checked{% endif %}>
+                <label for="visible" style="margin-bottom: 0; color: white;">Показувати пісню в списку</label>
+            </div>
+
+            <button type="submit" class="btn">Зберегти зміни</button>
+        </form>
+        
+        <a href="/" class="back-link">Скасувати</a>
+    </div>
+</body>
+</html>

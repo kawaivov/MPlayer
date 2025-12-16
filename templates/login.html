@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Вхід - Music App</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #181818;
+            padding: 40px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 { margin-bottom: 30px; font-weight: 700; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background-color: #333;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: white;
+            box-sizing: border-box;
+        }
+        input:focus { outline: 2px solid #1db954; border-color: transparent; }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background-color: #1db954;
+            color: black;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+        .btn:hover { background-color: #1ed760; transform: scale(1.02); }
+        a { color: #b3b3b3; text-decoration: none; font-size: 14px; margin-top: 20px; display: block; }
+        a:hover { color: white; text-decoration: underline; }
+
+        /* Стиль для повідомлень */
+        .flash-messages {
+            position: absolute; 
+            top: 20px; 
+            width: 100%; 
+            text-align: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div style="display: inline-block; padding: 10px 20px; border-radius: 4px; color: white; margin-bottom: 10px;
+                        background-color: {{ '#ff5555' if category == 'error' else '#1db954' }}; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <h1>Вхід</h1>
+        <form method="POST">
+            <input type="email" name="email" placeholder="Email або логін" required>
+            <input type="password" name="password" placeholder="Пароль" required>
+            <button type="submit" class="btn">Увійти</button>
+        </form>
+        <a href="/register">Немає акаунту? Зареєструватися</a>
+        <a href="/">На головну</a>
+    </div>
+</body>
+</html>

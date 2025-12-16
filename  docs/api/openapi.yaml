@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: Music Platform API
+  version: 1.0.0
+paths:
+  /tracks:
+    get:
+      summary: Отримати список треків
+      responses:
+        '200':
+          description: Успішно
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackResponse'
+    post:
+      summary: Створити новий трек
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTrackRequest'
+      responses:
+        '201':
+          description: Створено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackResponse'
+  /tracks/{id}:
+    get:
+      summary: Отримати трек за ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Знайдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackResponse'
+        '404':
+          description: Не знайдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Видалити трек
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Видалено успішно
+components:
+  schemas:
+    TrackResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+        status:
+          type: string
+    CreateTrackRequest:
+      type: object
+      required:
+        - title
+        - artist
+        - uploader_id
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        uploader_id:
+          type: string
+        filename:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,20 @@
+{
+  "name": "musicplayer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "**Тема:** Базовий клієнт – бекенд – БД   **Назва проєкту:** Music Streaming Platform (Spotify Clone)   **Виконав:** Студент групи [ТВОЯ_ГРУПА] [ТВОЄ_ПРІЗВИЩЕ_ТА_ІМЯ]",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
+}

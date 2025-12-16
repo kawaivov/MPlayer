@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resilient Client Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .banner { background: #ffebee; color: #c62828; padding: 1rem; margin-bottom: 1rem; border: 1px solid #ef9a9a; display: none; border-radius: 4px;}
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { padding: 8px; flex-grow: 1; }
+        button { padding: 8px 16px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #logs { background: #f5f5f5; padding: 1rem; border-radius: 4px; height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; }
+        .success { color: green; }
+        .error { color: red; }
+        .retry { color: orange; }
+    </style>
+</head>
+<body>
+
+    <h1>Resilient Client Demo</h1>
+    
+    <div id="degradedBanner" class="banner">
+        <strong>⚠️ Увага:</strong> Система працює в обмеженому режимі через проблеми зі з'єднанням. Спробуйте пізніше.
+    </div>
+
+    <div class="controls">
+        <input type="text" id="orderTitle" placeholder="Назва замовлення (напр. Buy Milk)">
+        <button id="submitBtn" onclick="createOrder()">Create Order</button>
+        <button onclick="checkHealth()">Check Health</button>
+    </div>
+
+    <div id="logs"></div>
+
+    <script type="module">
+        // --- Conf ---
+        const API_URL = "http://localhost:8081";
+        const STATE = {
+            consecutiveFailures: 0,
+            degradedThreshold: 3, // Кількість помилок для включення degraded mode
+            isDegraded: false
+        };
+
+        // --- Helpers ---
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        
+        // Експоненційний backoff з джитером
+        const backoff = (base, attempt) => {
+            const jitter = Math.floor(Math.random() * 100);
+            return base * (2 ** attempt) + jitter;
+        };
+
+        const log = (msg, type = '') => {
+            const el = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            el.innerHTML = `<div class="log-entry ${type}">[${time}] ${msg}</div>` + el.innerHTML;
+        };
+
+        // Оновлення UI для Degraded Mode
+        const updateDegradedState = (isFailure) => {
+            if (isFailure) {
+                STATE.consecutiveFailures++;
+            } else {
+                STATE.consecutiveFailures = 0;
+                if (STATE.isDegraded) {
+                    STATE.isDegraded = false;
+                    document.getElementById('degradedBanner').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
+                    log("🟢 System recovered. Degraded mode OFF.", "success");
+                }
+            }
+
+            if (!STATE.isDegraded && STATE.consecutiveFailures >= STATE.degradedThreshold) {
+                STATE.isDegraded = true;
+                document.getElementById('degradedBanner').style.display = 'block';
+                // Дизейблимо кнопку на короткий час, щоб дати системі "остигнути"
+                document.getElementById('submitBtn').disabled = true;
+                log("🔴 System unstable. Entering DEGRADED MODE.", "error");
+                
+                // Автоматичне повернення кнопки через 5 секунд (але банер залишається до успішного запиту)
+                setTimeout(() => {
+                    if (STATE.isDegraded) document.getElementById('submitBtn').disabled = false;
+                }, 5000);
+            }
+        };
+
+        // --- Idempotency Utils ---
+        async function getPayloadHash(payload) {
+            const msgBuffer = new TextEncoder().encode(JSON.stringify(payload));
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function getIdempotencyKey(payload) {
+            const hash = await getPayloadHash(payload);
+            const storageKey = `idem:${hash}`;
+            let key = localStorage.getItem(storageKey);
+            if (!key) {
+                key = crypto.randomUUID();
+                localStorage.setItem(storageKey, key);
+            }
+            return key;
+        }
+
+        // --- FETCH WITH RESILIENCE ---
+        async function fetchWithResilience(url, options = {}) {
+            const { retry = {}, ...fetchOptions } = options;
+            const { 
+                retries = 3, 
+                baseDelayMs = 500, 
+                timeoutMs = 3000 
+            } = retry;
+
+            const headers = new Headers(fetchOptions.headers || {});
+            // Додаємо кореляційний ID клієнта, якщо його немає
+            if (!headers.has('X-Request-Id')) {
+                headers.set('X-Request-Id', crypto.randomUUID());
+            }
+
+            const attempt = options.__attempt || 0;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+            try {
+                log(`Attempt ${attempt + 1}/${retries + 1} -> ${url}...`);
+                
+                const res = await fetch(url, { 
+                    ...fetchOptions, 
+                    headers, 
+                    signal: controller.signal 
+                });
+
+                clearTimeout(timeoutId);
+
+                // Handling 429 Too Many Requests
+                if (res.status === 429) {
+                    const retryAfterSec = parseInt(res.headers.get('Retry-After') || '1', 10);
+                    log(`⚠️ 429 Rate Limit. Waiting ${retryAfterSec}s...`, 'retry');
+                    
+                    if (attempt < retries) {
+                        await sleep(retryAfterSec * 1000);
+                        return fetchWithResilience(url, { ...options, __attempt: attempt }); // Не збільшуємо attempt для rate limit, або збільшуємо за логікою
+                    }
+                }
+
+                // Handling 5xx Server Errors
+                if (res.status >= 500 && attempt < retries) {
+                    const delay = backoff(baseDelayMs, attempt);
+                    log(`⚠️ Server Error (${res.status}). Retrying in ${delay}ms...`, 'retry');
+                    await sleep(delay);
+                    return fetchWithResilience(url, { ...options, __attempt: attempt + 1 });
+                }
+
+                if (!res.ok) {
+                     // Інші помилки клієнта (400, 401 тощо) не ретраїмо
+                    const errorBody = await res.json().catch(() => ({}));
+                    throw { status: res.status, ...errorBody };
+                }
+
+                updateDegradedState(false); // Успіх - скидаємо лічильник збоїв
+                return res;
+
+            } catch (err) {
+                clearTimeout(timeoutId);
+                const isAbort = err.name === 'AbortError';
+                const errMsg = isAbort ? 'Timeout' : (err.message || 'Network Error');
+                
+                log(`❌ Error: ${errMsg}`, 'error');
+
+                if (attempt < retries && (isAbort || err.name === 'TypeError')) {
+                    // Ретраїмо мережеві помилки і таймаути
+                    const delay = backoff(baseDelayMs, attempt);
+                    log(`🔄 Retrying network/timeout issue in ${delay}ms...`, 'retry');
+                    await sleep(delay);
+                    return fetchWithResilience(url, { ...options, __attempt: attempt + 1 });
+                }
+
+                updateDegradedState(true); // Критичний збій
+                throw err;
+            }
+        }
+
+        // --- Main Logic ---
+
+        window.createOrder = async () => {
+            const titleInput = document.getElementById('orderTitle');
+            const title = titleInput.value || "Untitled Order";
+            const payload = { title };
+            
+            // Отримуємо або створюємо ключ для цього payload
+            const idemKey = await getIdempotencyKey(payload);
+            log(`🔑 Idempotency Key: ${idemKey.slice(0, 8)}...`);
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+
+            try {
+                const res = await fetchWithResilience(`${API_URL}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': idemKey
+                    },
+                    body: JSON.stringify(payload),
+                    retry: { retries: 3, baseDelayMs: 300, timeoutMs: 2000 }
+                });
+
+                const data = await res.json();
+                const cachedMsg = data.cached ? " (From Cache)" : "";
+                log(`✅ Order Success: ${data.id}${cachedMsg}. RequestID: ${data.requestId}`, 'success');
+                
+            } catch (e) {
+                log(`⛔ Final Failure: ${JSON.stringify(e)}`, 'error');
+            } finally {
+                if(!STATE.isDegraded) btn.disabled = false;
+            }
+        };
+
+        window.checkHealth = async () => {
+            try {
+                // Health check з дуже коротким таймаутом (1с)
+                const res = await fetchWithResilience(`${API_URL}/health`, {
+                    retry: { retries: 0, timeoutMs: 1000 }
+                });
+                const data = await res.json();
+                log(`❤️ Health: ${data.status}`, 'success');
+            } catch (e) {
+                log(`💔 Health Check Failed`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

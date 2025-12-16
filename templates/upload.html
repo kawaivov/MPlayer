@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Завантажити трек</title>
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; padding: 30px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 600px; background-color: #181818; padding: 30px; border-radius: 8px; }
+        h1 { margin-bottom: 20px; text-align: center; }
+        
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #b3b3b3; font-weight: bold;}
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 20px; background-color: #333; border: none; border-radius: 4px; color: white; box-sizing: border-box;}
+        
+        /* Стилізація полів файлів */
+        .file-group { margin-bottom: 20px; border: 1px dashed #333; padding: 15px; border-radius: 4px; }
+        input[type="file"] { color: #b3b3b3; }
+
+        .checkbox-group { display: flex; align-items: center; margin-bottom: 20px; }
+        input[type="checkbox"] { transform: scale(1.5); margin-right: 10px; accent-color: #1db954; }
+
+        .btn { width: 100%; padding: 14px; background-color: #1db954; color: black; font-weight: bold; border: none; border-radius: 500px; cursor: pointer; text-transform: uppercase; }
+        .btn:hover { background-color: #1ed760; transform: scale(1.02); }
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #b3b3b3; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Завантажити музику</h1>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <label>Ваш логін (хто завантажує)</label>
+            <input type="text" name="uploader" placeholder="user123..." required>
+
+            <label>Назва треку</label>
+            <input type="text" name="title" placeholder="Наприклад: Back in Black" required>
+
+            <label>Виконавець</label>
+            <input type="text" name="artist" placeholder="Ваше ім'я або гурт" required>
+
+            <div class="file-group">
+                <label>Аудіо файл (.mp3, .wav)</label>
+                <input type="file" name="audio_file" accept=".mp3, .wav, .m4a" required>
+            </div>
+
+            <div class="file-group">
+                <label>Обкладинка альбому</label>
+                <input type="file" name="cover_file" accept="image/*">
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" name="is_visible" id="visible" checked>
+                <label for="visible" style="margin-bottom: 0; color: white;">Показувати пісню в списку</label>
+            </div>
+
+            <button type="submit" class="btn">Завантажити</button>
+        </form>
+        
+        <a href="/" class="back-link">← Назад до медіатеки</a>
+    </div>
+</body>
+</html>

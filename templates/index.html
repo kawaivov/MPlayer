@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Platform MVP</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <nav>
+        <div style="font-weight: bold; color: white;">MusicPlayer</div>
+        <div>
+            {% if user %}
+                <span style="color: #1db954; margin-right: 15px;">Привіт, {{ user }}!</span>
+                <a href="/upload" class="nav-link">+ Додати трек</a>
+                <a href="/logout" class="nav-link" style="color: #ff5555;">Вийти</a>
+            {% else %}
+                <a href="/login" class="btn-login">Увійти</a>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <h1>Моя Медіатека</h1>
+    
+    <div class="container">
+        <input type="text" id="searchInput" placeholder="Пошук треків або виконавців...">
+        
+        <div id="songsList">
+            {% if not songs %}
+                <p style="text-align: center; color: #777;">Поки що немає треків</p>
+            {% endif %}
+
+            {% for song in songs %}
+            <div class="song-item {% if not song.is_visible %}disabled{% endif %}" 
+                 id="song-{{ song.id }}"
+                 data-title="{{ song.title.lower() }}" 
+                 data-artist="{{ song.artist.lower() }}">
+                
+                <div class="song-top-row">
+                    {% if song.cover_filename %}
+                        <img src="{{ url_for('static', filename='covers/' + song.cover_filename) }}" class="album-cover" alt="Art">
+                    {% else %}
+                        <div class="album-cover">🎵</div>
+                    {% endif %}
+
+                    <div class="song-info">
+                        <div class="song-title">{{ song.title }}</div>
+                        <div class="song-artist">{{ song.artist }}</div>
+                        <div class="uploader-info">Залив: {{ song.uploader }}</div>
+                    </div>
+
+                    <div class="song-actions">
+                        <div class="song-status">
+                            {% if song.is_visible %}🟢{% else %}🔒{% endif %}
+                        </div>
+                        <a href="/edit/{{ song.id }}" class="edit-link" title="Редагувати">✏️</a>
+                        <button class="delete-btn" onclick="deleteSong({{ song.id }})">🗑️</button>
+                    </div>
+                </div>
+                
+                <div class="custom-player">
+                    <button class="play-btn" id="play-btn-{{ song.id }}" data-id="{{ song.id }}">▶</button>
+                    <input type="range" class="seek-slider" id="seek-{{ song.id }}" value="0" max="100">
+                    
+                    <audio id="audio-{{ song.id }}" src="{{ url_for('static', filename='music/' + song.filename) }}"></audio>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
